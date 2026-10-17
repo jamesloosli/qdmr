@@ -13,6 +13,7 @@ public:
 private slots:
   void testDecodeFactory();
   void testBasicConfigRoundTrip();
+  void testDualZoneRoundTrip();
   void testEncodeKeepsUnmodelledRegions();
   void testScanListTemplate();
   void testContactIDMap();

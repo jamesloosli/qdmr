@@ -62,6 +62,12 @@ public:
   /** Clears the codeplug, leaving an empty image. */
   void clear() override;
 
+  /** Splits zones with channels for VFO A and B into two zones, as the radio only knows a single
+   * channel list per zone. */
+  Config *preprocess(Config *config, const ErrorStack &err) const override;
+  /** Merges zones split by @c preprocess. */
+  bool postprocess(Config *config, const ErrorStack &err) const override;
+
 protected:
   /** The label of the image. */
   QString _label;

@@ -1,4 +1,6 @@
 #include "anytone_codeplug_gen2.hh"
+#include "intermediaterepresentation.hh"
+#include "config.hh"
 
 
 /* ********************************************************************************************* *
@@ -70,4 +72,38 @@ AnytoneCodeplugGen2::clear() {
   while (this->numImages())
     remImage(0);
   addImage(_label);
+}
+
+Config *
+AnytoneCodeplugGen2::preprocess(Config *config, const ErrorStack &err) const {
+  Config *intermediate = AnytoneCodeplugBase::preprocess(config, err);
+  if (nullptr == intermediate) {
+    errMsg(err) << "Cannot pre-process codeplug for anytone device.";
+    return nullptr;
+  }
+
+  ZoneSplitVisitor splitter;
+  if (! splitter.process(intermediate, err)) {
+    errMsg(err) << "Split multi-VFO zones.";
+    delete intermediate;
+    return nullptr;
+  }
+
+  return intermediate;
+}
+
+bool
+AnytoneCodeplugGen2::postprocess(Config *config, const ErrorStack &err) const {
+  if (! AnytoneCodeplugBase::postprocess(config, err)) {
+    errMsg(err) << "Cannot post-process codeplug for anytone device.";
+    return false;
+  }
+
+  ZoneMergeVisitor merger;
+  if (! merger.process(config, err)) {
+    errMsg(err) << "Cannot post-process codeplug for anytone device.";
+    return false;
+  }
+
+  return true;
 }

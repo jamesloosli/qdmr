@@ -111,11 +111,12 @@ D890UVLimits::D890UVLimits(const std::initializer_list<std::pair<Frequency, Freq
 
   add("zones",
       new RadioLimitList(
-        Zone::staticMetaObject, 1, 250, new RadioLimitObject {
-          { "name", new RadioLimitString(1, 16, RadioLimitString::Unicode) },
-          { "A", new RadioLimitRefList(1, 250, Channel::staticMetaObject) },
-          { "anytone", new RadioLimitIgnored(RadioLimitIssue::Hint) }
-        }));
+        Zone::staticMetaObject, 1, 250, new RadioLimitSingleZone(
+          160, {
+            { "name", new RadioLimitString(1, 16, RadioLimitString::Unicode) },
+            { "anytone", new RadioLimitIgnored(RadioLimitIssue::Hint) }
+          })
+        ));
 
   add("scanLists",
       new RadioLimitList(
@@ -132,15 +133,6 @@ bool
 D890UVLimits::verifyConfig(const Config *config, RadioLimitContext &context) const {
   if (! AnytoneLimits::verifyConfig(config, context))
     return false;
-
-  // Zone B lists are not written.
-  for (int i=0; i<config->zones()->count(); i++) {
-    if (config->zones()->zone(i)->B()->count()) {
-      auto &msg = context.newMessage(RadioLimitIssue::Warning);
-      msg << "Channels of VFO B in zone '" << config->zones()->zone(i)->name()
-          << "' are not supported yet and are ignored.";
-    }
-  }
 
   // Parts of the config that are not written at all.
   struct { int count; const char *what; } unsupported[] = {

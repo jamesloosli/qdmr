@@ -949,9 +949,6 @@ D890UVCodeplug::encode(Config *config, const Flags &flags, const ErrorStack &err
 
   for (unsigned int i=0; i<ctx.count<Zone>(); i++) {
     Zone *zone = ctx.get<Zone>(i);
-    if (zone->B()->count())
-      logWarn() << "Zone '" << zone->name() << "': Channels of VFO B are not supported yet "
-                   "and are ignored.";
     if (zone->A()->count() > int(Limit::zoneMembers())) {
       errMsg(err) << "Zone '" << zone->name() << "' has more than " << Limit::zoneMembers()
                   << " channels.";

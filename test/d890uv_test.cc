@@ -121,6 +121,44 @@ D890UVTest::testBasicConfigRoundTrip() {
 
 
 void
+D890UVTest::testDualZoneRoundTrip() {
+  ErrorStack err;
+  QVERIFY(_basicConfig.zones()->zone(0)->B()->count());
+
+  // A zone with channels for VFO A and B is split into two zones.
+  D890UVCodeplug codeplug;
+  codeplug.clear();
+  Config *intermediate = codeplug.preprocess(&_basicConfig, err);
+  if (nullptr == intermediate)
+    QFAIL(err.format().toStdString().c_str());
+  Codeplug::Flags flags; flags.setUpdateCodeplug(false);
+  bool encoded = codeplug.encode(intermediate, flags, err);
+  delete intermediate;
+  if (! encoded)
+    QFAIL(err.format().toStdString().c_str());
+
+  Config config;
+  if (! codeplug.decode(&config, err))
+    QFAIL(err.format().toStdString().c_str());
+  QCOMPARE(config.zones()->count(), 2*_basicConfig.zones()->count());
+  QVERIFY(config.zones()->zone(0)->name().endsWith(" A"));
+  QVERIFY(config.zones()->zone(1)->name().endsWith(" B"));
+
+  // ... and merged again.
+  if (! codeplug.postprocess(&config, err))
+    QFAIL(err.format().toStdString().c_str());
+  QCOMPARE(config.zones()->count(), _basicConfig.zones()->count());
+  for (int i=0; i<config.zones()->count(); i++) {
+    Zone *orig = _basicConfig.zones()->zone(i), *zone = config.zones()->zone(i);
+    QCOMPARE(zone->name(), orig->name());
+    QCOMPARE(zone->A()->count(), orig->A()->count());
+    QCOMPARE(zone->B()->count(), orig->B()->count());
+    QCOMPARE(zone->B()->get(0)->name(), orig->B()->get(0)->name());
+  }
+}
+
+
+void
 D890UVTest::testEncodeKeepsUnmodelledRegions() {
   ErrorStack err;
   D890UVCodeplug radio, codeplug;

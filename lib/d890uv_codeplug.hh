@@ -361,7 +361,7 @@ public:
     static constexpr unsigned int channels()            { return 4000; }
     static constexpr unsigned int channelsPerBank()     { return 128; }
     static constexpr unsigned int zones()               { return 250; }
-    static constexpr unsigned int zoneMembers()         { return 250; }
+    static constexpr unsigned int zoneMembers()         { return 160; }
     static constexpr unsigned int zoneNameLength()      { return 16; }
     // The scan list bitmap has room for 250, but only the first 100 records are valid.
     static constexpr unsigned int scanLists()           { return 100; }
