@@ -18,7 +18,7 @@ class RadioSettings;
  * are heavily segmented and only valid sections are read from a written to the device.
  *
  * @ingroup anytone */
-class AnytoneCodeplug : public Codeplug
+class AnytoneCodeplugGen1 : public Codeplug
 {
   Q_OBJECT
 
@@ -3402,11 +3402,11 @@ public:
 
 protected:
   /** Hidden constructor. */
-  AnytoneCodeplug(const QString &label, QObject *parent=nullptr);
+  AnytoneCodeplugGen1(const QString &label, QObject *parent=nullptr);
 
 public:
   /** Destructor. */
-  virtual ~AnytoneCodeplug();
+  virtual ~AnytoneCodeplugGen1();
 
   /** Clears and resets the complete codeplug to some default values. */
   virtual void clear();
