@@ -14,6 +14,7 @@
 #include "anytone_interface.hh"
 #include "anytone_codeplug.hh"
 #include "anytone_satelliteconfig.hh"
+#include "dfufile.hh"
 
 /** Implements an interface to Anytone radios.
  *
@@ -46,6 +47,11 @@ public:
   const QString &name() const;
   const Codeplug &codeplug() const;
   Codeplug &codeplug();
+
+  /** After a dry-run upload (see @c Codeplug::Flags::dryRun), holds the content of the radio
+   * for every element that would have been written. Together with @c codeplug(), this allows to
+   * compare what is on the radio with what would be written. */
+  DFUFile &dryRunOriginal();
 
 public slots:
   /** Starts the download of the codeplug and derives the generic configuration from it. */
@@ -91,6 +97,8 @@ protected:
   UserDatabase *_userDB;
   /** The actual binary codeplug representation. */
   AnytoneCodeplugBase *_codeplug;
+  /** The content of the radio for every element that would be written, filled by a dry run. */
+  DFUFile _dryRunOriginal;
   /** The actual binary callsign database representation. */
   CallsignDB *_callsigns;
   /** The actual binary callsign database representation. */
