@@ -4536,7 +4536,7 @@ AnytoneCodeplugGen1::ContactMapElement::setIndex(unsigned idx) {
  * Implementation of AnytoneCodeplugGen1
  * ********************************************************************************************* */
 AnytoneCodeplugGen1::AnytoneCodeplugGen1(const QString &label, QObject *parent)
-  : Codeplug(parent), _label(label)
+  : AnytoneCodeplugBase(parent), _label(label)
 {
   // pass...
 }

@@ -3,7 +3,7 @@
  *
  * Anytone radios share a lot of common formats and interfaces.
  * Consequently there are base-classes for radio interfaces (@c AnytoneInterface), codeplugs
- * (@c AnytoneCodeplugGen1) and radios (@c AnytoneRadio). This helps to keep the burden of implementing
+ * (@c AnytoneCodeplugBase) and radios (@c AnytoneRadio). This helps to keep the burden of implementing
  * the support for each radio at a minimum.
  *
  * @ingroup dsc */
@@ -90,7 +90,7 @@ protected:
   /** A weak reference to the user-database. */
   UserDatabase *_userDB;
   /** The actual binary codeplug representation. */
-  AnytoneCodeplugGen1 *_codeplug;
+  AnytoneCodeplugBase *_codeplug;
   /** The actual binary callsign database representation. */
   CallsignDB *_callsigns;
   /** The actual binary callsign database representation. */

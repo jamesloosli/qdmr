@@ -4,7 +4,7 @@
 #include "anytone_settingsextension.hh"
 #include "bootsettings.hh"
 #include "channel.hh"
-#include "codeplug.hh"
+#include "anytone_codeplugbase.hh"
 #include "contact.hh"
 #include <QGeoCoordinate>
 
@@ -18,7 +18,7 @@ class RadioSettings;
  * are heavily segmented and only valid sections are read from a written to the device.
  *
  * @ingroup anytone */
-class AnytoneCodeplugGen1 : public Codeplug
+class AnytoneCodeplugGen1 : public AnytoneCodeplugBase
 {
   Q_OBJECT
 
