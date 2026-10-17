@@ -660,6 +660,7 @@ void
 D890UVCodeplug::clear() {
   AnytoneCodeplugGen2::clear();
   allocateBitmaps();
+  allocatePreserved();
 }
 
 void
@@ -674,9 +675,78 @@ D890UVCodeplug::allocateBitmaps() {
   memset(data(Offset::contactBitmap()), 0xff, Size::contactBitmap());
 }
 
+/** Flash erase unit of the radio. */
+static constexpr uint32_t eraseUnit = 0x00040000;
+
+/** The regions, that are not modelled, but share an erase unit with a modelled region. Taken from
+ * USB captures of the vendor CPS, which reads and writes all of them. Writing a modelled region
+ * without these erases them: Confirmed on hardware for all regions in the erase units 0x03480000,
+ * 0x03680000 and 0x03700000. */
+static const struct { uint32_t address, size; } preservedRegions[] = {
+  { 0x01f81000, 0x0100 },  // VFO A and B, i.e., channels 4000 and 4001 in the last channel bank
+  { 0x03480000, 0x1900 },  // 5-tone IDs
+  { 0x03481900, 0x0010 },  // 5-tone ID bitmap
+  { 0x03481910, 0x0060 },  // 5-tone settings
+  { 0x03481a00, 0x0400 },  // 5-tone functions
+  { 0x03481e00, 0x0050 },  // DTMF settings
+  { 0x03482000, 0x0300 },  // 2-tone IDs
+  { 0x03482400, 0x0400 },  // 2-tone functions
+  { 0x03482800, 0x0010 },  // 2-tone ID bitmap
+  { 0x03482810, 0x0010 },  // 2-tone function bitmap
+  { 0x03482820, 0x0020 },  // 2-tone settings
+  { 0x03482c20, 0x0020 },  // hidden zone bitmap
+  { 0x03482e00, 0x0030 },  // alarm settings
+  { 0x03483000, 0x0030 },  // alarm settings extension
+  { 0x03483200, 0x03f0 },  // auto repeater offset frequencies
+  { 0x03684000, 0x0020 },  // primary radio ID
+  { 0x03684020, 0x0020 },  // unknown
+  { 0x03700000, 0x0100 },  // analog quick calls
+  { 0x03700100, 0x0800 },  // status messages
+  { 0x03700900, 0x0700 },  // unknown
+  { 0x03701000, 0x0360 },  // hot key settings
+  { 0x03701360, 0x01a0 },  // unknown
+  { 0x03701500, 0x0010 },  // unknown
+  { 0x03703900, 0x0020 }   // unknown
+};
+
+/** Returns @c true, if the content of the given erase unit is known, i.e., it holds modelled
+ * regions and all other known regions in it are listed in preservedRegions. */
+static bool
+isKnownEraseUnit(uint32_t unit) {
+  if ((unit >= 0x01000000) && (unit < 0x02000000) && (0 == (unit % 0x00080000)))
+    return true; // channel banks
+  if ((unit >= 0x03a00000) && (unit < 0x03f00000) && (0 == (unit % 0x00080000)))
+    return true; // contact banks
+  switch (unit) {
+  case 0x02000000: // zone channels
+  case 0x02100000: // scan lists
+  case 0x03480000: // bitmaps
+  case 0x03600000: // zone names
+  case 0x03680000: // radio IDs
+  case 0x03700000: // group list bitmap
+  case 0x03780000: // group lists
+  case 0x03980000: // contact bitmap
+  case 0x03f00000: // contact ID map
+    return true;
+  default:
+    break;
+  }
+  return false;
+}
+
+void
+D890UVCodeplug::allocatePreserved() {
+  for (auto &region : preservedRegions) {
+    if (isAllocated(region.address, 0))
+      continue;
+    image(0).addElement(region.address, region.size);
+    memset(data(region.address), 0xff, region.size);
+  }
+}
+
 void
 D890UVCodeplug::allocateUpdated() {
-  // pass...
+  allocatePreserved();
 }
 
 void
@@ -933,7 +1003,10 @@ D890UVCodeplug::encode(Config *config, const Flags &flags, const ErrorStack &err
     map.setUInt32_le(i*Size::contactIDMapEntry() + 4, ctx.index(contacts[i]));
   }
 
-  return verifySectorSafety(err);
+  // Elements read from a file may lack the preserved regions.
+  allocatePreserved();
+
+  return verifyEraseUnits(err) && verifySectorSafety(err);
 }
 
 bool
@@ -1015,6 +1088,27 @@ D890UVCodeplug::decode(Config *config, const ErrorStack &err) {
     config->zones()->add(zone); ctx.add(zone, i);
   }
 
+  return true;
+}
+
+bool
+D890UVCodeplug::verifyEraseUnits(const ErrorStack &err) const {
+  for (int i=0; i<image(0).numElements(); i++) {
+    uint32_t start = image(0).element(i).address(), end = start + image(0).element(i).data().size();
+    for (uint32_t unit = start & ~(eraseUnit-1); unit < end; unit += eraseUnit) {
+      if (! isKnownEraseUnit(unit)) {
+        errMsg(err) << "Refuse to write to the erase unit at 0x" << QString::number(unit, 16)
+                    << ": Its content is not known, writing would erase it.";
+        return false;
+      }
+    }
+  }
+  for (auto &region : preservedRegions) {
+    if (! isAllocated(region.address, 0)) {
+      errMsg(err) << "Region at 0x" << QString::number(region.address, 16) << " is not preserved.";
+      return false;
+    }
+  }
   return true;
 }
 

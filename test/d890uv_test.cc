@@ -9,6 +9,20 @@
 static const char *factoryCodeplug = ":/data/d890uv_factory.dfu";
 
 
+/* Prepares the codeplug like AnytoneRadio::upload() does: Starting from a cleared codeplug, every
+ * allocated element (bitmaps and preserved regions) is "read" from the given radio image. */
+static void
+readFromRadio(D890UVCodeplug &codeplug, D890UVCodeplug &radio) {
+  codeplug.clear();
+  for (int i=0; i<codeplug.image(0).numElements(); i++) {
+    uint32_t addr = codeplug.image(0).element(i).address(),
+        size = codeplug.image(0).element(i).data().size();
+    if (radio.isAllocated(addr, 0) && radio.isAllocated(addr+size-1, 0))
+      memcpy(codeplug.data(addr), radio.data(addr), size);
+  }
+}
+
+
 D890UVTest::D890UVTest(QObject *parent)
   : UnitTestBase(parent)
 {
@@ -109,19 +123,19 @@ D890UVTest::testBasicConfigRoundTrip() {
 void
 D890UVTest::testEncodeKeepsUnmodelledRegions() {
   ErrorStack err;
-  D890UVCodeplug original, codeplug;
-  if ((! original.read(factoryCodeplug, err)) || (! codeplug.read(factoryCodeplug, err)))
+  D890UVCodeplug radio, codeplug;
+  if (! radio.read(factoryCodeplug, err))
     QFAIL(err.format().toStdString().c_str());
 
   // Update the codeplug read from the radio.
+  readFromRadio(codeplug, radio);
   if (! codeplug.encode(&_basicConfig, Codeplug::Flags(), err))
     QFAIL(err.format().toStdString().c_str());
 
-  // Every region of the factory image outside of the modelled ones must be unchanged. The
-  // modelled regions are: channel banks, zone channels, scan lists, radio IDs, zone names, group
-  // lists, contacts, contact ID map and the bitmaps of those.
+  // Writing erases the complete erase unit. Hence every region of the radio, that shares an erase
+  // unit with a written element but is not modelled, must be written back unchanged.
   auto modelled = [](uint32_t addr) {
-    return ((addr >= 0x01000000) && (addr < 0x01f80000)) ||   // channel banks
+    return ((addr >= 0x01000000) && (addr < 0x01f81000)) ||   // channel banks
         ((addr >= 0x02000000) && (addr < 0x02020000)) ||       // zone channels
         ((addr >= 0x02100000) && (addr < 0x0210c800)) ||       // scan lists
         ((addr >= 0x03600000) && (addr < 0x03604000)) ||       // zone names
@@ -132,17 +146,27 @@ D890UVTest::testEncodeKeepsUnmodelledRegions() {
         (0x03482a00 == addr) || (0x03482c00 == addr) || (0x03482c40 == addr) ||
         (0x03482c60 == addr) || (0x03701510 == addr) || (0x03980000 == addr);
   };
-  for (int i=0; i<original.image(0).numElements(); i++) {
-    const DFUFile::Element &el = original.image(0).element(i);
-    if (modelled(el.address()))
+  QSet<uint32_t> writtenUnits;
+  for (int i=0; i<codeplug.image(0).numElements(); i++)
+    writtenUnits.insert(codeplug.image(0).element(i).address() & ~0x3ffffu);
+  for (int i=0; i<radio.image(0).numElements(); i++) {
+    const DFUFile::Element &el = radio.image(0).element(i);
+    if (modelled(el.address()) || (! writtenUnits.contains(el.address() & ~0x3ffffu)))
       continue;
+    QVERIFY2(codeplug.isAllocated(el.address(), 0),
+             QString("Region at 0x%1 is not written back.").arg(el.address(), 0, 16).toStdString().c_str());
     QVERIFY2(0 == memcmp(el.data().constData(), codeplug.data(el.address()), el.data().size()),
              QString("Region at 0x%1 changed.").arg(el.address(), 0, 16).toStdString().c_str());
   }
 
+  // Erase units holding no modelled region are not written at all.
+  QVERIFY(! writtenUnits.contains(0x03500000)); // general settings
+  QVERIFY(! writtenUnits.contains(0x03580000)); // encryption keys
+  QVERIFY(! writtenUnits.contains(0x02980000)); // messages
+
   // Bits of the channel bitmap beyond channel 4000 (VFO A and B) are kept.
   QCOMPARE(QByteArray((const char *)codeplug.data(0x03482a00+500), 12),
-           QByteArray((const char *)original.data(0x03482a00+500), 12));
+           QByteArray((const char *)radio.data(0x03482a00+500), 12));
 
   // The result decodes like the config.
   Config config;
@@ -178,13 +202,14 @@ void
 D890UVTest::testContactIDMap() {
   ErrorStack err;
   D890UVCodeplug factory, codeplug;
-  if ((! factory.read(factoryCodeplug, err)) || (! codeplug.read(factoryCodeplug, err)))
+  if (! factory.read(factoryCodeplug, err))
     QFAIL(err.format().toStdString().c_str());
 
   // Decoding and encoding the factory config reproduces the factory ID map.
   Config config;
   if (! factory.decode(&config, err))
     QFAIL(err.format().toStdString().c_str());
+  readFromRadio(codeplug, factory);
   if (! codeplug.encode(&config, Codeplug::Flags(), err))
     QFAIL(err.format().toStdString().c_str());
 

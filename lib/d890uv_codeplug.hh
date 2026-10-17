@@ -12,8 +12,12 @@ class DMRRadioID;
 
 /** Represents the binary codeplug of the AnyTone AT-D890UV.
  *
- * Models channels, zones, scan lists, DMR contacts, RX group lists and radio IDs. Everything else
- * stored in the radio is neither read nor written, hence kept as is.
+ * Models channels, zones, scan lists, DMR contacts, RX group lists and radio IDs.
+ *
+ * Writing to the flash of the radio erases the complete erase unit (0x40000 bytes) the data is
+ * written to. Hence, every other region within an erase unit that gets written must be read first
+ * and written back unchanged, see @c allocatePreserved(). Erase units holding no modelled region
+ * are neither read nor written.
  *
  * Unless stated otherwise, layouts and template values are taken from a codeplug read from a
  * radio (FW V100) holding the factory configuration, i.e., written by the vendor. The addresses
@@ -424,13 +428,20 @@ public:
   bool encode(Config *config, const Flags &flags=Flags(), const ErrorStack &err=ErrorStack()) override;
 
 protected:
-  /** Nothing to preserve: Only modelled regions are written, all of them are encoded. */
+  /** Allocates the regions to preserve, see @c allocatePreserved(). */
   void allocateUpdated() override;
   /** Allocates the records marked in the bitmaps. */
   void allocateForDecoding() override;
 
   /** Allocates the bitmaps. */
   void allocateBitmaps();
+  /** Allocates the regions, that are not modelled, but share an erase unit with modelled ones.
+   * These get read from the radio before, and written back unchanged with the encoded codeplug.
+   * Regions not allocated yet are filled with 0xff, i.e., erased flash. */
+  void allocatePreserved();
+  /** Returns @c true if all elements are located in erase units whose content is known, and all
+   * known regions of these units are allocated, i.e., will be written back. */
+  bool verifyEraseUnits(const ErrorStack &err=ErrorStack()) const;
   /** Sets the bitmaps for the indexed config. */
   void setBitmaps(Context &ctx);
   /** Allocates and resets the records for the indexed config. */
