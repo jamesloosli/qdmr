@@ -24,6 +24,10 @@ public:
 
   const RadioLimits &limits() const;
 
+  /** Refuses to upload a codeplug generated from scratch (i.e., @c --init-codeplug), which would
+   * not preserve the regions of the codeplug that are not modelled. */
+  bool startUpload(Config *config, const Codeplug::Flags &flags = Codeplug::Flags(), const ErrorStack &err=ErrorStack());
+
   /** Not implemented yet, always fails. */
   bool startUploadCallsignDB(UserDatabase *db, const CallsignDB::Flags &selection=CallsignDB::Flags(), const ErrorStack &err=ErrorStack());
   /** Not implemented yet, always fails. */
